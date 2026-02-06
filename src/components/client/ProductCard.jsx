@@ -7,23 +7,26 @@ const ProductCard = ({ product }) => {
     <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden border border-gray-100 flex flex-col">
       
       {/* IMAGEN DEL PRODUCTO */}
-      <div className="relative h-64 overflow-hidden group">
+      {/* 1. ENVOLVEMOS LA IMAGEN EN UN LINK */}
+      <Link to={`/producto/${product.id}`} className="relative h-64 overflow-hidden group block">
         <img 
           src={fixImageURL(product.imagen)} 
           alt={product.nombre}
           className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
         />
-        {/* Etiqueta de Categoría (flotante) */}
         <span className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded uppercase tracking-wide">
             {product.categoria || 'Mueble'}
         </span>
-      </div>
+      </Link>
 
       {/* INFORMACIÓN */}
       <div className="p-4 flex-1 flex flex-col">
-        <h3 className="text-lg font-bold text-gray-800 mb-1 leading-tight">
-            {product.nombre}
-        </h3>
+        {/* 2. ENVOLVEMOS EL TÍTULO EN UN LINK */}
+        <Link to={`/producto/${product.id}`}>
+            <h3 className="text-lg font-bold text-gray-800 mb-1 leading-tight hover:text-orange-600 transition-colors">
+                {product.nombre}
+            </h3>
+        </Link>
         
         {/* Descripción corta (truncada) */}
         <p className="text-gray-500 text-sm mb-4 line-clamp-2 flex-1">

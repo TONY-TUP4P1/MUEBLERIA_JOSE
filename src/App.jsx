@@ -1,40 +1,45 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
-// Importamos los Layouts
+// Layouts y Páginas
 import ClientLayout from './layouts/ClientLayout';
-import AdminLayout from './layouts/AdminLayout';
-
-// Importamos las Páginas (Asegúrate de tener estos archivos creados con algo básico dentro)
 import Home from './pages/client/Home';
-import Dashboard from './pages/admin/Dashboard';
 import Catalog from './components/client/Catalog';
+import ProductDetail from './pages/client/ProductDetail';
+import CartPage from './pages/client/CartPage';
 
-// Puedes crear este archivo rápido si no existe para probar
-// import Catalog from './pages/client/Catalog'; 
+import AdminLayout from './layouts/AdminLayout';
+import Dashboard from './pages/admin/Dashboard'; // (Si la creaste, sino usa AdminProducts como index)
+import AdminProducts from './pages/admin/AdminProducts';
+import Login from './pages/admin/Login'; // <--- IMPORTAR LOGIN
+
+// Componente de Seguridad
+import ProtectedRoute from './components/admin/ProtectedRoute'; // <--- IMPORTAR GUARDIA
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         
-        {/* GRUPO 1: RUTAS DEL CLIENTE (Tienda) */}
-        {/* Todas estas rutas tendrán el Navbar blanco y el Footer */}
+        {/* RUTA DE LOGIN (Pública) */}
+        <Route path="/login" element={<Login />} />
+
+        {/* RUTAS DEL CLIENTE (Públicas) */}
         <Route path="/" element={<ClientLayout />}>
-            <Route index element={<Home />} />
-            <Route path="catalogo" element={<Catalog />} /> 
-            {/* <Route path="carrito" element={<CartPage />} /> */}
+          <Route index element={<Home />} />
+          <Route path="catalogo" element={<Catalog />} />
+          <Route path="producto/:id" element={<ProductDetail />} />
+          <Route path="carrito" element={<CartPage />} />
         </Route>
 
-        {/* GRUPO 2: RUTAS DEL ADMIN (Panel) */}
-        {/* Todas estas rutas tendrán la barra lateral oscura */}
-        <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<Dashboard />} />
-            {/* <Route path="productos" element={<AdminProducts />} /> */}
+        {/* RUTAS DEL ADMIN (Protegidas) 🔒 */}
+        {/* Envolvemos todo el layout de Admin con ProtectedRoute */}
+        <Route element={<ProtectedRoute />}> 
+            <Route path="/admin" element={<AdminLayout />}>
+                <Route index element={<Dashboard />} /> {/* O AdminProducts si prefieres */}
+                <Route path="productos" element={<AdminProducts />} />
+            </Route>
         </Route>
-
-        {/* RUTA 404 (Opcional: Si escriben cualquier otra cosa) */}
-        <Route path="*" element={<h1 className="text-center mt-10">404 - Página no encontrada</h1>} />
 
       </Routes>
     </BrowserRouter>

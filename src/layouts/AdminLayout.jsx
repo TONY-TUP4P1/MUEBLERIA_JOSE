@@ -1,25 +1,54 @@
-import { Outlet, Link } from 'react-router-dom';
+import React from 'react';
+import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext'; // <--- Importamos el hook
 
 const AdminLayout = () => {
+  const { logout, user } = useAuth(); // <--- Usamos la función logout
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+        await logout();
+        navigate('/login'); // Nos manda al login al salir
+    } catch (error) {
+        console.error("Error al salir", error);
+    }
+  };
+
   return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Sidebar (Barra Lateral Izquierda) */}
+    <div className="flex min-h-screen bg-gray-100">
+      {/* Sidebar */}
       <aside className="w-64 bg-gray-900 text-white flex flex-col">
-        <div className="p-4 text-xl font-bold border-b border-gray-700">Admin Panel</div>
+        <div className="p-6 text-2xl font-bold text-center border-b border-gray-800">
+          Admin Panel
+        </div>
+        
         <nav className="flex-1 p-4 space-y-2">
-            {/* Usamos Link en lugar de <a href> para no recargar la página */}
-            <Link to="/admin" className="block py-2 px-4 hover:bg-gray-700 rounded">Dashboard</Link>
-            <Link to="/admin/productos" className="block py-2 px-4 hover:bg-gray-700 rounded">Productos</Link>
+          <Link to="/admin" className="block py-2.5 px-4 rounded hover:bg-gray-800 transition">
+            <i className="fas fa-chart-line mr-2"></i> Dashboard
+          </Link>
+          <Link to="/admin/productos" className="block py-2.5 px-4 rounded hover:bg-gray-800 transition">
+            <i className="fas fa-box mr-2"></i> Productos
+          </Link>
         </nav>
-        <div className="p-4 border-t border-gray-700">
-            <Link to="/" className="text-sm text-gray-400 hover:text-white">← Volver a la Tienda</Link>
+
+        {/* Sección de Usuario abajo */}
+        <div className="p-4 border-t border-gray-800">
+            <div className="text-sm text-gray-400 mb-2">Usuario:</div>
+            <div className="text-sm font-bold truncate mb-4">{user?.email}</div>
+            
+            <button 
+                onClick={handleLogout}
+                className="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded transition flex items-center justify-center gap-2"
+            >
+                <i className="fas fa-sign-out-alt"></i> Cerrar Sesión
+            </button>
         </div>
       </aside>
 
       {/* Contenido Principal */}
-      <main className="flex-1 overflow-auto p-8">
-        {/* Aquí se cargarán Dashboard.jsx o AdminProducts.jsx */}
-        <Outlet /> 
+      <main className="flex-1 p-8 overflow-y-auto">
+        <Outlet />
       </main>
     </div>
   );

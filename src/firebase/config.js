@@ -1,7 +1,7 @@
 // src/firebase/config.js
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-// import { getAuth } from "firebase/auth"; // Descomenta si vas a usar login
+import { getAuth } from "firebase/auth"; // Descomenta si vas a usar login
 
 const firebaseConfig = {
   apiKey: "AIzaSyAX1ko2GNhmPJh3qCHZsf3iP_2mI7_ESj4",
@@ -17,4 +17,4 @@ const app = initializeApp(firebaseConfig);
 
 // Exportamos la base de datos para usarla en toda la app
 export const db = getFirestore(app);
-// export const auth = getAuth(app);
+export const auth = getAuth(app);
