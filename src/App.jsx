@@ -4,14 +4,17 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 // Layouts y Páginas
 import ClientLayout from './layouts/ClientLayout';
 import Home from './pages/client/Home';
-import Catalog from './components/client/Catalog';
+import Catalog from './pages/client/Catalog';
 import ProductDetail from './pages/client/ProductDetail';
 import CartPage from './pages/client/CartPage';
+import Checkout from './pages/client/Checkout';
 
 import AdminLayout from './layouts/AdminLayout';
 import Dashboard from './pages/admin/Dashboard'; // (Si la creaste, sino usa AdminProducts como index)
 import AdminProducts from './pages/admin/AdminProducts';
 import Login from './pages/admin/Login'; // <--- IMPORTAR LOGIN
+import AdminOrders from './pages/admin/AdminOrders';
+import AdminCategories from './pages/admin/AdminCategories';
 
 // Componente de Seguridad
 import ProtectedRoute from './components/admin/ProtectedRoute'; // <--- IMPORTAR GUARDIA
@@ -30,6 +33,7 @@ function App() {
           <Route path="catalogo" element={<Catalog />} />
           <Route path="producto/:id" element={<ProductDetail />} />
           <Route path="carrito" element={<CartPage />} />
+          <Route path="checkout" element={<Checkout />} />
         </Route>
 
         {/* RUTAS DEL ADMIN (Protegidas) 🔒 */}
@@ -38,6 +42,8 @@ function App() {
             <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<Dashboard />} /> {/* O AdminProducts si prefieres */}
                 <Route path="productos" element={<AdminProducts />} />
+                <Route path="pedidos" element={<AdminOrders />} />
+                <Route path="categorias" element={<AdminCategories />} />
             </Route>
         </Route>
 

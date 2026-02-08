@@ -70,9 +70,12 @@ const CartPage = () => {
                 <span className="text-orange-600">{formatPrice(totalPrice)}</span>
             </div>
             
-            <button className="w-full bg-gray-900 text-white py-3 rounded-lg font-bold hover:bg-green-600 transition shadow-lg">
+            <Link 
+                to="/checkout"
+                className="block text-center w-full bg-gray-900 text-white py-3 rounded-lg font-bold hover:bg-green-600 transition shadow-lg"
+            >
                 Proceder al Pago
-            </button>
+            </Link>
         </div>
 
       </div>
