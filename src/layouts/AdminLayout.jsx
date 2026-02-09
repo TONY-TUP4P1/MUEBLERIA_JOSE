@@ -24,15 +24,25 @@ const AdminLayout = () => {
         </div>
         
         <nav className="flex-1 p-4 space-y-2">
+          <Link to="/admin/home-config" className="block py-2.5 px-4 rounded transition hover:bg-gray-700 hover:text-white">
+              <i className="fas fa-home mr-3"></i> Portada
+          </Link>
+          <Link to="/admin/publicaciones" className="block py-2.5 px-4 rounded hover:bg-gray-800 transition">
+              <i className="fas fa-newspaper mr-3"></i> Publicaciones
+          </Link>
+          <Link to="/admin/info-empresa" className="block py-2.5 px-4 rounded hover:bg-gray-800 transition">
+              <i className="fas fa-building mr-3"></i> Info Empresa
+          </Link>
           <Link to="/admin" className="block py-2.5 px-4 rounded hover:bg-gray-800 transition">
               <i className="fas fa-chart-line mr-2"></i> Dashboard
-          </Link>
-          <Link to="/admin/productos" className="block py-2.5 px-4 rounded hover:bg-gray-800 transition">
-              <i className="fas fa-box mr-2"></i> Productos
           </Link>
           <Link to="/admin/pedidos" className="block py-2.5 px-4 rounded hover:bg-gray-800 transition">
               <i className="fas fa-shopping-bag mr-2"></i> Pedidos
           </Link>
+          <Link to="/admin/productos" className="block py-2.5 px-4 rounded hover:bg-gray-800 transition">
+              <i className="fas fa-box mr-2"></i> Productos
+          </Link>
+          
           <Link to="/admin/categorias" className="block py-2.5 px-4 rounded hover:bg-gray-800 transition">
               <i className="fas fa-tags mr-2"></i> Categorías
           </Link>

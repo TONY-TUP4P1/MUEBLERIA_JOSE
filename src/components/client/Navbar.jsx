@@ -16,9 +16,15 @@ const Navbar = () => {
 
         {/* MENÚ DE NAVEGACIÓN */}
         <div className="flex items-center gap-6">
-          <Link to="/" className="text-gray-600 hover:text-orange-600 font-medium">Inicio</Link>
-          {/* Aún no creamos catalogo, pero dejamos el link listo */}
-          <Link to="/catalogo" className="text-gray-600 hover:text-orange-600 font-medium">Catálogo</Link>
+          <Link to="/" className="text-gray-600 hover:text-orange-600 font-medium">
+              Inicio
+          </Link>
+          <Link to="/catalogo" className="text-gray-600 hover:text-orange-600 font-medium">
+              Catálogo
+          </Link>
+          <Link to="/contacto" className="text-gray-600 hover:text-blue-600 font-bold transition">
+              Nosotros
+          </Link>
           
           {/* ICONO DEL CARRITO */}
           <Link to="/carrito" className="relative group">

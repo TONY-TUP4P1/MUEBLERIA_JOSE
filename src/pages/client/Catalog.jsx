@@ -49,27 +49,21 @@ const Catalog = () => {
 
   // === LÓGICA DE FILTRADO ===
   const filteredProducts = products.filter(product => {
+    // 1. Validar que tenga STOCK POSITIVO (Si no tiene campo stock, asumimos 0 para ocultarlo por seguridad, o 1 si prefieres mostrarlo)
+    const hasStock = product.stock && product.stock > 0;
+
     const prodCat = product.categoria ? product.categoria.trim() : 'Otros';
     const prodSub = product.subcategoria ? product.subcategoria.trim() : '';
-
-    // 1. Filtro Texto
-    const matchSearch = product.nombre 
-        ? product.nombre.toLowerCase().includes(searchTerm.toLowerCase()) 
-        : false;
-
-    // 2. Filtro Categoría Padre
+    const matchSearch = product.nombre ? product.nombre.toLowerCase().includes(searchTerm.toLowerCase()) : false;
+    
     let matchCat = true;
-    if (activeCategory !== 'Todos') {
-        matchCat = prodCat === activeCategory;
-    }
+    if (activeCategory !== 'Todos') matchCat = prodCat === activeCategory;
 
-    // 3. Filtro Subcategoría (Solo si hay una seleccionada)
     let matchSub = true;
-    if (activeCategory !== 'Todos' && activeSubcategory) {
-        matchSub = prodSub === activeSubcategory;
-    }
+    if (activeCategory !== 'Todos' && activeSubcategory) matchSub = prodSub === activeSubcategory;
 
-    return matchSearch && matchCat && matchSub;
+    // AÑADIMOS "&& hasStock" AL FINAL
+    return matchSearch && matchCat && matchSub && hasStock; 
   });
 
   // Funciones navegación Modal
