@@ -19,6 +19,7 @@ import AdminCategories from './pages/admin/AdminCategories';
 import AdminHome from './pages/admin/AdminHome';
 import AdminPublications from './pages/admin/AdminPublications';
 import AdminAbout from './pages/admin/AdminAbout';
+import AdminMessages from './pages/admin/AdminMessages';
 
 // Componente de Seguridad
 import ProtectedRoute from './components/admin/ProtectedRoute'; // <--- IMPORTAR GUARDIA
@@ -52,6 +53,8 @@ function App() {
                 <Route path="home-config" element={<AdminHome />} />
                 <Route path="publicaciones" element={<AdminPublications />} />
                 <Route path="info-empresa" element={<AdminAbout />} />
+                <Route path="mensajes" element={<AdminMessages />} />
+                
             </Route>
         </Route>
 

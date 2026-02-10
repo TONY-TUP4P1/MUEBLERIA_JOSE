@@ -1,50 +1,59 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-// 1. Creamos el contexto (la "nube")
+// 1. Creamos el contexto
 const CartContext = createContext();
 
-// 2. Creamos el proveedor (el componente que envuelve a la app)
+// 2. Proveedor
 export const CartProvider = ({ children }) => {
-  // Inicializamos el carrito leyendo del localStorage (si hay algo guardado)
   const [cart, setCart] = useState(() => {
     const savedCart = localStorage.getItem('cart');
     return savedCart ? JSON.parse(savedCart) : [];
   });
 
-  // Guardar en localStorage cada vez que el carrito cambie
   useEffect(() => {
     localStorage.setItem('cart', JSON.stringify(cart));
   }, [cart]);
 
-  // FUNCIÓN: Agregar al carrito
-  const addToCart = (product, quantity = 1) => {
+  // --- AGREGAR (INCREMENTAR) ---
+  const addToCart = (product, amount = 1) => {
     setCart(prevCart => {
-      // ¿El producto ya está en el carrito?
       const existingItem = prevCart.find(item => item.id === product.id);
 
       if (existingItem) {
-        // Si ya existe, sumamos la cantidad
+        // Si existe, sumamos a 'quantity'
         return prevCart.map(item =>
           item.id === product.id
-            ? { ...item, quantity: item.quantity + quantity }
+            ? { ...item, quantity: item.quantity + amount }
             : item
         );
       } else {
-        // Si es nuevo, lo agregamos
-        return [...prevCart, { ...product, quantity }];
+        // Si es nuevo, inicializamos 'quantity'
+        return [...prevCart, { ...product, quantity: amount }];
       }
     });
   };
 
-  // FUNCIÓN: Eliminar del carrito
+  // --- RESTAR (DECREMENTAR) --- (NUEVA FUNCIÓN)
+  const decreaseQuantity = (productId) => {
+    setCart(prevCart => {
+      return prevCart.map(item => {
+        // Solo restamos si el ID coincide y la cantidad es mayor a 1
+        if (item.id === productId && item.quantity > 1) {
+          return { ...item, quantity: item.quantity - 1 };
+        }
+        return item;
+      });
+    });
+  };
+
+  // --- ELIMINAR COMPLETAMENTE ---
   const removeFromCart = (productId) => {
     setCart(prevCart => prevCart.filter(item => item.id !== productId));
   };
 
-  // FUNCIÓN: Vaciar carrito
   const clearCart = () => setCart([]);
 
-  // CÁLCULOS: Total de ítems y Total de precio
+  // Cálculos (Usando 'quantity')
   const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
   const totalPrice = cart.reduce((acc, item) => acc + (item.precio * item.quantity), 0);
 
@@ -52,6 +61,7 @@ export const CartProvider = ({ children }) => {
     <CartContext.Provider value={{ 
       cart, 
       addToCart, 
+      decreaseQuantity, // <--- Exportamos la nueva función
       removeFromCart, 
       clearCart, 
       totalItems, 
@@ -62,5 +72,4 @@ export const CartProvider = ({ children }) => {
   );
 };
 
-// 3. Hook personalizado para usar el carrito fácil
 export const useCart = () => useContext(CartContext);

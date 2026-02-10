@@ -3,7 +3,8 @@ import { db } from '../../firebase/config';
 import { collection, getDocs } from 'firebase/firestore';
 import { useCart } from '../../context/CartContext';
 import { formatPrice } from '../../utils/images';
-import ProductModal from '../../components/client/ProductModal'; 
+import ProductModal from '../../components/client/ProductModal';
+import { useSearchParams } from 'react-router-dom'; // <--- 1. IMPORTANTE: Agregado para leer la URL
 
 const Catalog = () => {
   const [products, setProducts] = useState([]);
@@ -13,18 +14,22 @@ const Catalog = () => {
 
   // === ESTADOS DE FILTRO AVANZADO ===
   const [searchTerm, setSearchTerm] = useState('');
-  const [categoriesData, setCategoriesData] = useState([]); // Estructura completa
+  const [categoriesData, setCategoriesData] = useState([]); 
   
   // Guardamos qué categoría padre está activa y cuál subcategoría
   const [activeCategory, setActiveCategory] = useState('Todos'); 
   const [activeSubcategory, setActiveSubcategory] = useState(null); 
 
+  // === HOOK PARA LEER URL (CONEXIÓN CON NAVBAR) ===
+  const [searchParams] = useSearchParams();
+
+  // 1. Efecto para Cargar Datos
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
 
-        // 1. Cargar Estructura de Categorías
+        // Cargar Estructura de Categorías
         const catsSnapshot = await getDocs(collection(db, "categories"));
         const catsStructure = catsSnapshot.docs.map(doc => ({
             id: doc.id,
@@ -33,7 +38,7 @@ const Catalog = () => {
         }));
         setCategoriesData(catsStructure);
 
-        // 2. Cargar Muebles
+        // Cargar Muebles
         const prodsSnapshot = await getDocs(collection(db, "muebles"));
         const prodsList = prodsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setProducts(prodsList);
@@ -47,14 +52,26 @@ const Catalog = () => {
     fetchData();
   }, []);
 
+  // 2. Efecto para Sincronizar URL con el Buscador (NUEVO)
+  useEffect(() => {
+    const query = searchParams.get('q');
+    if (query) {
+        setSearchTerm(query); // Pone el texto de la URL en el buscador
+        setActiveCategory('Todos'); // Resetea categorías para buscar en todo
+    }
+  }, [searchParams]);
+
   // === LÓGICA DE FILTRADO ===
   const filteredProducts = products.filter(product => {
-    // 1. Validar que tenga STOCK POSITIVO (Si no tiene campo stock, asumimos 0 para ocultarlo por seguridad, o 1 si prefieres mostrarlo)
+    // Validar que tenga STOCK POSITIVO
     const hasStock = product.stock && product.stock > 0;
 
     const prodCat = product.categoria ? product.categoria.trim() : 'Otros';
     const prodSub = product.subcategoria ? product.subcategoria.trim() : '';
-    const matchSearch = product.nombre ? product.nombre.toLowerCase().includes(searchTerm.toLowerCase()) : false;
+    
+    // Búsqueda segura (maneja nulos)
+    const term = searchTerm.toLowerCase();
+    const matchSearch = product.nombre ? product.nombre.toLowerCase().includes(term) : false;
     
     let matchCat = true;
     if (activeCategory !== 'Todos') matchCat = prodCat === activeCategory;
@@ -62,7 +79,6 @@ const Catalog = () => {
     let matchSub = true;
     if (activeCategory !== 'Todos' && activeSubcategory) matchSub = prodSub === activeSubcategory;
 
-    // AÑADIMOS "&& hasStock" AL FINAL
     return matchSearch && matchCat && matchSub && hasStock; 
   });
 
@@ -76,11 +92,15 @@ const Catalog = () => {
     setSelectedProduct(filteredProducts[newIndex]);
   };
 
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-400">Cargando catálogo...</div>;
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative">
       <div className="text-center mb-12">
         <h1 className="text-4xl font-extrabold text-gray-900 mb-4">Nuestro Catálogo</h1>
-        <p className="text-gray-500">Muebles diseñados para tu hogar.</p>
+        <p className="text-gray-500">
+            {searchTerm ? `Resultados para: "${searchTerm}"` : 'Muebles diseñados para tu hogar.'}
+        </p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">
@@ -88,14 +108,14 @@ const Catalog = () => {
         {/* === SIDEBAR CATEGORÍAS === */}
         <aside className="w-full lg:w-1/4 space-y-6">
             
-          {/* Buscador */}
+          {/* Buscador Local */}
           <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
             <input 
               type="text"
               placeholder="Buscar..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full p-2 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-gray-900 outline-none"
+              className="w-full p-2 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-gray-900 outline-none transition"
             />
           </div>
 
@@ -104,7 +124,6 @@ const Catalog = () => {
             <h3 className="font-bold text-gray-800 mb-4 text-lg">Filtrar por</h3>
             
             <ul className="space-y-1">
-              {/* Botón "Todos" */}
               <li>
                 <button 
                   onClick={() => { setActiveCategory('Todos'); setActiveSubcategory(null); }}
@@ -115,15 +134,11 @@ const Catalog = () => {
                 </button>
               </li>
 
-              {/* Categorías Dinámicas */}
               {categoriesData.map((cat) => (
                 <li key={cat.id} className="mt-2">
-                    {/* Botón Padre */}
                     <button 
                         onClick={() => {
                             if (activeCategory === cat.nombre) {
-                                // Si ya está activo, quizás queramos colapsarlo o no hacer nada.
-                                // En este caso, solo reseteamos subcategoría para ver "todo lo de esa categoría"
                                 setActiveSubcategory(null);
                             } else {
                                 setActiveCategory(cat.nombre);
@@ -134,13 +149,11 @@ const Catalog = () => {
                             ${activeCategory === cat.nombre ? 'text-blue-600 font-bold bg-blue-50' : 'text-gray-700 hover:bg-gray-50'}`}
                     >
                         <span>{cat.nombre}</span>
-                        {/* Icono flecha si tiene hijos */}
                         {cat.subcategorias.length > 0 && (
                             <i className={`fas fa-chevron-down text-xs transition-transform ${activeCategory === cat.nombre ? 'rotate-180' : ''}`}></i>
                         )}
                     </button>
 
-                    {/* Lista de Hijos (Subcategorías) - Solo visible si el Padre está activo */}
                     {activeCategory === cat.nombre && cat.subcategorias.length > 0 && (
                         <ul className="pl-6 mt-1 space-y-1 border-l-2 border-gray-100 ml-3">
                             {cat.subcategorias.map((sub) => (
@@ -166,7 +179,9 @@ const Catalog = () => {
         <main className="w-full lg:w-3/4">
             {filteredProducts.length === 0 && (
                 <div className="text-center py-20 bg-gray-50 rounded-xl border border-dashed border-gray-300">
-                    <p className="text-gray-500">No encontramos productos aquí.</p>
+                    <i className="fas fa-search text-4xl text-gray-300 mb-4"></i>
+                    <p className="text-gray-500">No encontramos productos con esos filtros.</p>
+                    <button onClick={() => {setSearchTerm(''); setActiveCategory('Todos');}} className="mt-4 text-blue-600 font-bold hover:underline">Limpiar filtros</button>
                 </div>
             )}
 
@@ -176,7 +191,9 @@ const Catalog = () => {
                     <div className="relative h-64 overflow-hidden bg-gray-100">
                         <img src={product.imagen} alt={product.nombre} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                             <button onClick={() => setSelectedProduct(product)} className="bg-white text-gray-900 px-6 py-2 rounded-full font-bold shadow-lg hover:scale-105 transition">Ver Detalle</button>
+                             <button onClick={() => setSelectedProduct(product)} className="bg-white text-gray-900 px-6 py-2 rounded-full font-bold shadow-lg hover:scale-105 transition">
+                                <i className="fas fa-eye mr-2"></i> Ver Detalle
+                             </button>
                         </div>
                     </div>
                     <div className="p-5 flex-1 flex flex-col">
@@ -189,7 +206,9 @@ const Catalog = () => {
                         <h2 className="text-lg font-bold text-gray-800 mb-2">{product.nombre}</h2>
                         <div className="mt-auto flex justify-between items-center pt-4 border-t border-gray-100">
                             <span className="text-xl font-bold text-gray-900">{formatPrice(product.precio)}</span>
-                            <button onClick={() => addToCart(product)} className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-900 hover:text-white transition flex items-center justify-center"><i className="fas fa-plus"></i></button>
+                            <button onClick={() => addToCart(product)} className="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-900 hover:text-white transition flex items-center justify-center shadow-sm">
+                                <i className="fas fa-plus"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -199,7 +218,13 @@ const Catalog = () => {
       </div>
 
       {selectedProduct && (
-        <ProductModal product={selectedProduct} onClose={() => setSelectedProduct(null)} onNext={() => navigateModal('next')} onPrev={() => navigateModal('prev')} hasNext={filteredProducts.length > 1} />
+        <ProductModal 
+            product={selectedProduct} 
+            onClose={() => setSelectedProduct(null)} 
+            onNext={() => navigateModal('next')} 
+            onPrev={() => navigateModal('prev')} 
+            hasNext={filteredProducts.length > 1} 
+        />
       )}
     </div>
   );

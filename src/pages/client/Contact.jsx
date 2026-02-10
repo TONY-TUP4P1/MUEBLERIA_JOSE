@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../../firebase/config';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { fixImageURL } from '../../utils/images';
 
 const Contact = () => {
   const [info, setInfo] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ nombre: '', email: '', mensaje: '' });
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     const fetchInfo = async () => {
@@ -34,6 +36,26 @@ const Contact = () => {
     };
     fetchInfo();
   }, []);
+
+  // 2. Función para enviar mensaje
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSending(true);
+    try {
+        await addDoc(collection(db, "messages"), {
+            ...form,
+            fecha: serverTimestamp(), // Guarda la hora exacta del servidor
+            leido: false // Para saber cuáles son nuevos
+        });
+        alert("¡Mensaje enviado con éxito! Nos pondremos en contacto pronto.");
+        setForm({ nombre: '', email: '', mensaje: '' }); // Limpiar form
+    } catch (error) {
+        console.error(error);
+        alert("Error al enviar el mensaje.");
+    } finally {
+        setSending(false);
+    }
+  };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-400">Cargando...</div>;
 
@@ -113,27 +135,52 @@ const Contact = () => {
         </div>
 
         {/* SECCIÓN 3: FORMULARIO VISUAL */}
-        <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 max-w-4xl mx-auto border border-gray-100">
+        {/* FORMULARIO DE CONTACTO ACTUALIZADO */}
+        <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 max-w-4xl mx-auto border border-gray-100 mt-16">
             <h2 className="text-3xl font-bold text-center text-gray-800 mb-2">¿Tienes alguna duda?</h2>
             <p className="text-center text-gray-500 mb-8">Envíanos un mensaje y te responderemos pronto.</p>
             
-            <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); alert('Mensaje enviado (Simulado)'); }}>
+            <form className="space-y-6" onSubmit={handleSubmit}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">Nombre</label>
-                        <input type="text" className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg focus:ring-2 focus:ring-gray-800 outline-none transition" placeholder="Tu nombre" required />
+                        <input 
+                            required
+                            type="text" 
+                            value={form.nombre}
+                            onChange={(e) => setForm({...form, nombre: e.target.value})}
+                            className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg focus:ring-2 focus:ring-gray-800 outline-none transition" 
+                            placeholder="Tu nombre" 
+                        />
                     </div>
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">Correo</label>
-                        <input type="email" className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg focus:ring-2 focus:ring-gray-800 outline-none transition" placeholder="tu@correo.com" required />
+                        <input 
+                            required
+                            type="email" 
+                            value={form.email}
+                            onChange={(e) => setForm({...form, email: e.target.value})}
+                            className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg focus:ring-2 focus:ring-gray-800 outline-none transition" 
+                            placeholder="tu@correo.com" 
+                        />
                     </div>
                 </div>
                 <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">Mensaje</label>
-                    <textarea className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg h-32 resize-none focus:ring-2 focus:ring-gray-800 outline-none transition" placeholder="¿En qué podemos ayudarte?" required></textarea>
+                    <textarea 
+                        required
+                        value={form.mensaje}
+                        onChange={(e) => setForm({...form, mensaje: e.target.value})}
+                        className="w-full bg-gray-50 border border-gray-200 p-3 rounded-lg h-32 resize-none focus:ring-2 focus:ring-gray-800 outline-none transition" 
+                        placeholder="¿En qué podemos ayudarte?" 
+                    ></textarea>
                 </div>
-                <button type="submit" className="w-full bg-gray-900 text-white font-bold py-4 rounded-lg hover:bg-gray-800 transition shadow-lg transform hover:-translate-y-1">
-                    Enviar Mensaje
+                <button 
+                    type="submit" 
+                    disabled={sending}
+                    className="w-full bg-gray-900 text-white font-bold py-4 rounded-lg hover:bg-gray-800 transition shadow-lg transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    {sending ? 'Enviando...' : 'Enviar Mensaje'}
                 </button>
             </form>
         </div>

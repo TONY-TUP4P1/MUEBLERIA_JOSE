@@ -33,6 +33,9 @@ const AdminLayout = () => {
           <Link to="/admin/info-empresa" className="block py-2.5 px-4 rounded hover:bg-gray-800 transition">
               <i className="fas fa-building mr-3"></i> Info Empresa
           </Link>
+          <Link to="/admin/mensajes" className="block py-2.5 px-4 rounded hover:bg-gray-800 transition">
+              <i className="fas fa-envelope mr-3"></i> Mensajes Clientes
+          </Link>
           <Link to="/admin" className="block py-2.5 px-4 rounded hover:bg-gray-800 transition">
               <i className="fas fa-chart-line mr-2"></i> Dashboard
           </Link>
