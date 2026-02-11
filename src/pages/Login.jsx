@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate, Link } from 'react-router-dom'; // <--- IMPORTANTE: Importar Link
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -15,7 +15,7 @@ const Login = () => {
     setError('');
     try {
       await login(email, password);
-      navigate('/admin'); // Si todo sale bien, mándame al admin
+      navigate('/'); 
     } catch (error) {
       console.error(error);
       setError('Credenciales incorrectas. Intenta de nuevo.');
@@ -25,7 +25,7 @@ const Login = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
       <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border border-gray-200">
-        <h1 className="text-2xl font-bold text-center text-gray-800 mb-6">Acceso Administrativo</h1>
+        <h1 className="text-2xl font-bold text-center text-gray-800 mb-6">Iniciar Sesión</h1>
         
         {error && (
             <div className="bg-red-100 text-red-700 p-3 rounded-lg mb-4 text-sm text-center">
@@ -66,9 +66,16 @@ const Login = () => {
           </button>
         </form>
         
-        <div className="mt-6 text-center">
-            <a href="/" className="text-sm text-gray-500 hover:underline">← Volver a la tienda</a>
+        {/* --- NUEVO FOOTER CON ENLACE A REGISTRO --- */}
+        <div className="mt-6 text-center space-y-2">
+            <p className="text-sm text-gray-600">
+                ¿No tienes cuenta? <Link to="/register" className="text-blue-600 font-bold hover:underline">Regístrate aquí</Link>
+            </p>
+            <div>
+                <Link to="/" className="text-sm text-gray-500 hover:underline">← Volver a la tienda</Link>
+            </div>
         </div>
+
       </div>
     </div>
   );
