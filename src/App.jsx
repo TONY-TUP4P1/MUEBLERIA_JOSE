@@ -12,6 +12,9 @@ import ProductDetail from './pages/client/ProductDetail';
 import CartPage from './pages/client/CartPage';
 import Checkout from './pages/client/Checkout';
 import Contact from './pages/client/Contact';
+import MisPedidos from './pages/client/MisPedidos'; // Importar
+import Perfil from './pages/client/Perfil';       // Importar
+import Ayuda from './pages/client/Ayuda';         // Importar
 
 import AdminLayout from './layouts/AdminLayout';
 import Welcome from './pages/admin/Welcome'; 
@@ -45,6 +48,9 @@ function App() {
           <Route path="carrito" element={<CartPage />} />
           <Route path="checkout" element={<Checkout />} />
           <Route path="/contacto" element={<Contact />} />
+          <Route path="/mis-pedidos" element={<MisPedidos />} />
+          <Route path="/perfil" element={<Perfil />} />
+          <Route path="/ayuda" element={<Ayuda />} />
         </Route>
 
         {/* RUTAS DEL ADMIN (Protegidas) 🔒 */}

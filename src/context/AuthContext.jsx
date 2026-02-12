@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
-  createUserWithEmailAndPassword, // <--- IMPORTANTE: Importar esto
+  createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signOut, 
   onAuthStateChanged 
@@ -9,10 +9,10 @@ import { auth } from '../firebase/config';
 
 const AuthContext = createContext();
 
-// Hook personalizado para usar el contexto
+// Hook para usar el contexto
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error("useAuth must be used within an AuthProvider");
+  if (!context) throw new Error("useAuth debe usarse dentro de un AuthProvider");
   return context;
 };
 
@@ -20,40 +20,38 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // --- 1. FUNCIÓN DE REGISTRO (SIGNUP) ---
+  // 1. Registro
   const signup = (email, password) => {
-    // Esta función devuelve una promesa que Register.jsx va a esperar
     return createUserWithEmailAndPassword(auth, email, password);
   };
 
-  // --- 2. FUNCIÓN DE LOGIN ---
+  // 2. Login
   const login = (email, password) => {
     return signInWithEmailAndPassword(auth, email, password);
   };
 
-  // --- 3. FUNCIÓN DE LOGOUT ---
+  // 3. Logout
   const logout = () => {
     return signOut(auth);
   };
 
+  // 4. Escuchar cambios de sesión (CRUCIAL)
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      console.log("Estado de usuario cambiado:", currentUser);
+      console.log("👤 AuthContext detectó usuario:", currentUser?.email || "Sin sesión");
       setUser(currentUser);
       setLoading(false);
     });
     return () => unsubscribe();
   }, []);
 
+  if (loading) {
+    return <div className="p-10 text-center">Cargando aplicación...</div>;
+  }
+
   return (
-    <AuthContext.Provider value={{ 
-        signup,  // <--- ¡AQUÍ ESTABA EL ERROR! Faltaba exportar esto
-        login, 
-        logout, 
-        user, 
-        loading 
-    }}>
-      {!loading && children}
+    <AuthContext.Provider value={{ signup, login, logout, user, loading }}>
+      {children}
     </AuthContext.Provider>
   );
 };

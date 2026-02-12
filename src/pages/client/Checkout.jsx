@@ -1,24 +1,76 @@
-import React, { useState } from 'react';
-import { useCart } from '../../context/CartContext';
+import React, { useState, useEffect } from 'react';
+import { useCart } from '../../context/CartContext'; 
+import { useAuth } from '../../context/AuthContext'; // <--- Asegúrate que la ruta sea correcta
 import { db } from '../../firebase/config';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-import { formatPrice } from '../../utils/images';
-import { useAuth } from '../../context/AuthContext'; // <--- 1. IMPORTAR ESTO
+
+// 1. DEFINIMOS EL FORMATEADOR AQUÍ PARA EVITAR ERRORES DE IMPORTACIÓN
+const formatPrice = (amount) => {
+  return new Intl.NumberFormat('es-PE', {
+    style: 'currency',
+    currency: 'PEN',
+  }).format(amount);
+};
 
 const Checkout = () => {
-  const { cart, totalPrice, clearCart } = useCart();
-  const { user } = useAuth(); // <--- 2. OBTENER USUARIO LOGUEADO
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  // 2. OBTENEMOS LOS CONTEXTOS CON VALORES POR DEFECTO
+  const { cart = [], totalPrice = 0, clearCart } = useCart();
+  const { user, loading } = useAuth(); 
   
-  // Datos del cliente (Formulario)
+  const navigate = useNavigate();
+  const [procesando, setProcesando] = useState(false);
+  
+  // Estado del formulario
   const [clientData, setClientData] = useState({
     nombre: '',
     telefono: '',
     direccion: '',
-    email: '' // Este es el email de contacto que escribe manual
+    email: '' 
   });
+
+  // --- DEBUGGING: MIRA LA CONSOLA DEL NAVEGADOR (F12) ---
+  console.log("--- DEBUG ---");
+  console.log("Loading:", loading);
+  console.log("User:", user);
+  
+  // 3. EFECTO MAGICO: HEREDAR DATOS
+  useEffect(() => {
+    // Si aún está cargando la sesión, esperamos
+    if (loading) return;
+
+    // Si hay usuario, llenamos el email inmediatamente
+    if (user && users.email) {
+        console.log("Heredando email:", users.email);
+        
+        // Paso A: Poner email del Auth
+        setClientData(prev => ({
+            ...prev,
+            email: users.email
+        }));
+
+        // Paso B: Intentar buscar datos extra en Firestore
+        const fetchExtraData = async () => {
+            try {
+                const docRef = doc(db, "users", user.uid);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    setClientData(prev => ({
+                        ...prev,
+                        nombre: data.nombre || '',
+                        telefono: data.telefono || '',
+                        direccion: data.direccion || '',
+                        // Priorizamos el email de Auth, pero si quieres el de la BD, usa data.email
+                    }));
+                }
+            } catch (error) {
+                console.error("Error trayendo datos extra:", error);
+            }
+        };
+        fetchExtraData();
+    }
+  }, [user, loading]); // Se ejecuta cuando 'user' o 'loading' cambian
 
   const handleInputChange = (e) => {
     setClientData({
@@ -29,7 +81,7 @@ const Checkout = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setProcesando(true);
 
     try {
         const order = {
@@ -42,99 +94,118 @@ const Checkout = () => {
             })),
             total: totalPrice,
             fecha: serverTimestamp(),
-            estado: 'pendiente',
-            // 3. ETIQUETADO MAGICO 🏷️
-            // Si hay usuario logueado, guardamos su ID. Si no, va null (compra de invitado).
-            userId: user ? user.uid : null, 
-            userEmail: user ? user.email : clientData.email 
+            userId: user ? user.uid : null
         };
 
-        // Guardamos en la colección PRINCIPAL para que el Admin lo vea
         const docRef = await addDoc(collection(db, "orders"), order);
-        const orderId = docRef.id;
-
-        // ... (El resto del código de WhatsApp sigue igual)
-        
-        const mensaje = `Hola, quiero confirmar mi pedido #${orderId.slice(0,5)}...`; // (Resumido)
-        const numeroWhatsApp = "51999999999"; 
-        const urlWhatsApp = `https://wa.me/${numeroWhatsApp}?text=${mensaje}`;
-
         clearCart();
-        window.open(urlWhatsApp, '_blank');
+        alert(`Pedido generado con éxito ID: ${docRef.id}`);
         navigate('/');
-        alert(`¡Pedido registrado! ID: ${orderId}`);
-
     } catch (error) {
-        console.error(error);
-        alert("Error al procesar el pedido.");
+        console.error("Error al comprar:", error);
+        alert("Hubo un error al procesar el pedido");
     } finally {
-        setLoading(false);
+        setProcesando(false);
     }
   };
 
-  if (cart.length === 0) return <div className="text-center py-20">No hay productos para comprar.</div>;
+  // 4. RENDERIZADO CONDICIONAL PARA EVITAR PANTALLA BLANCA
+  if (loading) {
+      return <div className="p-10 text-center font-bold text-gray-500">Cargando sesión...</div>;
+  }
+
+  if (!cart.length) {
+      return <div className="p-10 text-center">El carrito está vacío. <button onClick={() => navigate('/')}>Volver</button></div>;
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-8 text-center">Finalizar Compra</h1>
+      <h1 className="text-2xl font-bold mb-6">Finalizar Compra</h1>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        
-        {/* COLUMNA 1: FORMULARIO */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <h2 className="text-xl font-bold mb-4">Tus Datos</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label className="block text-sm text-gray-600 mb-1">Nombre Completo</label>
-                    <input required name="nombre" onChange={handleInputChange} type="text" className="w-full border p-2 rounded outline-none focus:border-orange-500" />
-                </div>
-                <div>
-                    <label className="block text-sm text-gray-600 mb-1">Teléfono / WhatsApp</label>
-                    <input required name="telefono" onChange={handleInputChange} type="tel" className="w-full border p-2 rounded outline-none focus:border-orange-500" />
-                </div>
-                <div>
-                    <label className="block text-sm text-gray-600 mb-1">Dirección de Entrega</label>
-                    <input required name="direccion" onChange={handleInputChange} type="text" className="w-full border p-2 rounded outline-none focus:border-orange-500" />
-                </div>
-                <div>
-                    <label className="block text-sm text-gray-600 mb-1">Email (Opcional)</label>
-                    <input name="email" onChange={handleInputChange} type="email" className="w-full border p-2 rounded outline-none focus:border-orange-500" />
-                </div>
+      {/* MENSAJE DE DEBUG VISUAL */}
+      {user ? (
+          <div className="bg-green-100 text-green-800 p-2 mb-4 rounded">
+              Hola <b>{users.email}</b>, hemos autocompletado tu correo.
+          </div>
+      ) : (
+          <div className="bg-yellow-100 text-yellow-800 p-2 mb-4 rounded">
+              Comprando como invitado (No registrado)
+          </div>
+      )}
 
-                <button 
-                    disabled={loading}
-                    type="submit" 
-                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg mt-4 transition flex items-center justify-center gap-2"
-                >
-                    {loading ? 'Procesando...' : (
-                        <>
-                            <i className="fab fa-whatsapp text-xl"></i> Confirmar pedido por WhatsApp
-                        </>
-                    )}
-                </button>
-            </form>
-        </div>
-
-        {/* COLUMNA 2: RESUMEN */}
-        <div className="bg-gray-50 p-6 rounded-xl h-fit border border-gray-200">
-            <h2 className="text-xl font-bold mb-4">Resumen del Pedido</h2>
-            <div className="space-y-3 mb-4">
-                {cart.map(item => (
-                    <div key={item.id} className="flex justify-between text-sm">
-                        <span>{item.quantity}x {item.nombre}</span>
-                        <span className="font-bold">{formatPrice(item.precio * item.quantity)}</span>
-                    </div>
-                ))}
+      <div className="grid md:grid-cols-2 gap-8">
+        {/* FORMULARIO */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+                <label className="block text-sm font-bold mb-1">Email</label>
+                <input 
+                    type="email" 
+                    name="email"
+                    value={clientData.email} 
+                    onChange={handleInputChange}
+                    className="w-full border p-2 rounded bg-gray-50"
+                    // Si hay usuario, hacemos que sea de solo lectura para evitar errores
+                    readOnly={!!user} 
+                    required 
+                />
             </div>
-            <div className="border-t pt-4 flex justify-between text-xl font-bold text-gray-800">
-                <span>Total</span>
-                <span className="text-orange-600">{formatPrice(totalPrice)}</span>
+            <div>
+                <label className="block text-sm font-bold mb-1">Nombre</label>
+                <input 
+                    type="text" 
+                    name="nombre"
+                    value={clientData.nombre} 
+                    onChange={handleInputChange}
+                    className="w-full border p-2 rounded"
+                    required 
+                />
             </div>
-            <p className="text-xs text-gray-500 mt-4 text-center">
-                * Al confirmar, se abrirá WhatsApp con los detalles de tu pedido para coordinar el pago.
-            </p>
-        </div>
+            <div>
+                <label className="block text-sm font-bold mb-1">Teléfono</label>
+                <input 
+                    type="tel" 
+                    name="telefono"
+                    value={clientData.telefono} 
+                    onChange={handleInputChange}
+                    className="w-full border p-2 rounded"
+                    required 
+                />
+            </div>
+            <div>
+                <label className="block text-sm font-bold mb-1">Dirección</label>
+                <input 
+                    type="text" 
+                    name="direccion"
+                    value={clientData.direccion} 
+                    onChange={handleInputChange}
+                    className="w-full border p-2 rounded"
+                    required 
+                />
+            </div>
 
+            <button 
+                type="submit" 
+                disabled={procesando}
+                className="w-full bg-blue-600 text-white font-bold py-3 rounded hover:bg-blue-700 disabled:bg-gray-400"
+            >
+                {procesando ? 'Procesando...' : 'Confirmar Pedido'}
+            </button>
+        </form>
+
+        {/* RESUMEN */}
+        <div className="bg-gray-50 p-6 rounded h-fit">
+            <h2 className="text-xl font-bold mb-4">Resumen</h2>
+            {cart.map(item => (
+                <div key={item.id} className="flex justify-between py-2 border-b text-sm">
+                    <span>{item.quantity} x {item.nombre}</span>
+                    <span>{formatPrice(item.precio * item.quantity)}</span>
+                </div>
+            ))}
+            <div className="flex justify-between mt-4 text-xl font-bold">
+                <span>Total:</span>
+                <span>{formatPrice(totalPrice)}</span>
+            </div>
+        </div>
       </div>
     </div>
   );
