@@ -41,24 +41,35 @@ const AdminPublications = () => {
   // 2. Manejar Formulario
   const handleSave = async (e) => {
     e.preventDefault();
+    
+    // Objeto limpio: aseguramos que nunca enviamos undefined
+    const dataToSave = {
+        titulo: formData.titulo || '',
+        tipo: formData.tipo || 'novedad',
+        imagen: formData.imagen || '',
+        contenido: formData.contenido || '',
+        botonTexto: formData.botonTexto || '',
+        botonLink: formData.botonLink || ''
+    };
+
     try {
       if (editingId) {
         // Editar
-        await updateDoc(doc(db, "publications", editingId), formData);
+        await updateDoc(doc(db, "publications", editingId), dataToSave);
       } else {
         // Crear
         await addDoc(collection(db, "publications"), {
-            ...formData,
-            fecha: new Date().toISOString() // Guardamos fecha de creación
+            ...dataToSave,
+            fecha: new Date().toISOString()
         });
       }
       setIsModalOpen(false);
       resetForm();
-      fetchPosts(); // Recargar lista
-      alert("Publicación guardada");
+      fetchPosts(); 
+      // alert("Publicación guardada"); // Opcional: puedes quitar el alert para que sea más fluido
     } catch (error) {
-      console.error(error);
-      alert("Error al guardar");
+      console.error("Error al guardar:", error);
+      alert("Error al guardar: Revisa la consola.");
     }
   };
 
@@ -70,7 +81,15 @@ const AdminPublications = () => {
   };
 
   const openEdit = (post) => {
-    setFormData(post);
+    // Al cargar los datos, si algo viene undefined, lo convertimos a ""
+    setFormData({
+      titulo: post.titulo || '',
+      tipo: post.tipo || 'novedad',
+      imagen: post.imagen || '',
+      contenido: post.contenido || '',
+      botonTexto: post.botonTexto || '',
+      botonLink: post.botonLink || ''
+    });
     setEditingId(post.id);
     setIsModalOpen(true);
   };

@@ -68,10 +68,18 @@ const AdminHome = () => {
     setEditingIndex(-1);
   };
 
-  // 4. Editar uno existente (Cargar en form)
+  // 4. Editar uno existente (CORREGIDO)
   const handleEdit = (index) => {
     setEditingIndex(index);
-    setFormSlide(slides[index]);
+    // Aseguramos que el formulario no reciba undefined
+    const slide = slides[index];
+    setFormSlide({
+        titulo: slide.titulo || '',
+        subtitulo: slide.subtitulo || '',
+        imagen: slide.imagen || '',
+        botonTexto: slide.botonTexto || '',
+        botonLink: slide.botonLink || ''
+    });
   };
 
   // 5. Borrar Slide
@@ -86,15 +94,29 @@ const AdminHome = () => {
     }
   };
 
-  // 6. GUARDAR TODO EN FIREBASE
+  // 6. GUARDAR TODO EN FIREBASE (CORREGIDO)
   const handleSaveToFirebase = async () => {
     setSaving(true);
     try {
-        await setDoc(doc(db, "content", "home"), { slides }, { merge: true });
+        // PASO CRUCIAL: Limpiamos el array antes de enviarlo.
+        // Convertimos cualquier 'undefined' a string vacío ""
+        const slidesToSave = slides.map(slide => ({
+            titulo: slide.titulo || "",
+            subtitulo: slide.subtitulo || "",
+            imagen: slide.imagen || "",
+            botonTexto: slide.botonTexto || "",
+            botonLink: slide.botonLink || ""
+        }));
+
+        // Usamos setDoc con merge:true para actualizar
+        await setDoc(doc(db, "content", "home"), { 
+            slides: slidesToSave 
+        }, { merge: true });
+
         alert("¡Carrusel actualizado correctamente!");
     } catch (error) {
         console.error("Error guardando:", error);
-        alert("Error al guardar.");
+        alert("Error al guardar. Revisa la consola (F12).");
     } finally {
         setSaving(false);
     }

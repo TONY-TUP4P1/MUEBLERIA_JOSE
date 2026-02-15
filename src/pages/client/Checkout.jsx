@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useCart } from '../../context/CartContext'; 
-import { useAuth } from '../../context/AuthContext'; // <--- Asegúrate que la ruta sea correcta
+import { useAuth } from '../../context/AuthContext'; 
 import { db } from '../../firebase/config';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 
-// 1. DEFINIMOS EL FORMATEADOR AQUÍ PARA EVITAR ERRORES DE IMPORTACIÓN
 const formatPrice = (amount) => {
   return new Intl.NumberFormat('es-PE', {
     style: 'currency',
@@ -14,63 +13,55 @@ const formatPrice = (amount) => {
 };
 
 const Checkout = () => {
-  // 2. OBTENEMOS LOS CONTEXTOS CON VALORES POR DEFECTO
   const { cart = [], totalPrice = 0, clearCart } = useCart();
   const { user, loading } = useAuth(); 
-  
   const navigate = useNavigate();
   const [procesando, setProcesando] = useState(false);
   
-  // Estado del formulario
+  // Estado inicial
   const [clientData, setClientData] = useState({
+    email: '', // Importante inicializarlo
     nombre: '',
     telefono: '',
-    direccion: '',
-    email: '' 
+    direccion: ''
   });
 
-  // --- DEBUGGING: MIRA LA CONSOLA DEL NAVEGADOR (F12) ---
-  console.log("--- DEBUG ---");
-  console.log("Loading:", loading);
-  console.log("User:", user);
-  
-  // 3. EFECTO MAGICO: HEREDAR DATOS
+  // --- LÓGICA DE RECUPERACIÓN DE DATOS ---
   useEffect(() => {
-    // Si aún está cargando la sesión, esperamos
-    if (loading) return;
+    if (loading || !user) return;
 
-    // Si hay usuario, llenamos el email inmediatamente
-    if (user && users.email) {
-        console.log("Heredando email:", users.email);
-        
-        // Paso A: Poner email del Auth
-        setClientData(prev => ({
-            ...prev,
-            email: users.email
-        }));
+    const fetchUserData = async () => {
+        try {
+            // 1. Buscamos en la colección 'users'
+            const userRef = doc(db, "users", user.uid);
+            const userSnap = await getDoc(userRef);
 
-        // Paso B: Intentar buscar datos extra en Firestore
-        const fetchExtraData = async () => {
-            try {
-                const docRef = doc(db, "users", user.uid);
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    setClientData(prev => ({
-                        ...prev,
-                        nombre: data.nombre || '',
-                        telefono: data.telefono || '',
-                        direccion: data.direccion || '',
-                        // Priorizamos el email de Auth, pero si quieres el de la BD, usa data.email
-                    }));
-                }
-            } catch (error) {
-                console.error("Error trayendo datos extra:", error);
+            if (userSnap.exists()) {
+                const data = userSnap.data();
+                console.log("Datos recuperados:", data);
+                
+                // 2. Llenamos el formulario
+                setClientData({
+                    nombre: data.nombre || '',
+                    telefono: data.telefono || '',
+                    direccion: data.direccion || '',
+                    // Prioridad: Email de BD > Email de Auth > Vacío
+                    email: data.email || user.email || '' 
+                });
+            } else {
+                // Si no hay datos en BD, usamos el de Auth
+                setClientData(prev => ({
+                    ...prev,
+                    email: user.email || ''
+                }));
             }
-        };
-        fetchExtraData();
-    }
-  }, [user, loading]); // Se ejecuta cuando 'user' o 'loading' cambian
+        } catch (error) {
+            console.error("Error recuperando datos:", error);
+        }
+    };
+
+    fetchUserData();
+  }, [user, loading]);
 
   const handleInputChange = (e) => {
     setClientData({
@@ -83,9 +74,16 @@ const Checkout = () => {
     e.preventDefault();
     setProcesando(true);
 
+    // Validación final: El email NO puede estar vacío
+    if (!clientData.email) {
+        alert("Error: El campo email es obligatorio.");
+        setProcesando(false);
+        return;
+    }
+
     try {
         const order = {
-            cliente: clientData,
+            cliente: clientData, // Enviamos clientData completo (ya incluye email)
             productos: cart.map(item => ({
                 id: item.id,
                 nombre: item.nombre,
@@ -94,48 +92,34 @@ const Checkout = () => {
             })),
             total: totalPrice,
             fecha: serverTimestamp(),
-            userId: user ? user.uid : null
+            userId: user ? user.uid : null,
+            estado: 'pendiente',
+            metodoPago: 'Transferencia'
         };
 
         const docRef = await addDoc(collection(db, "orders"), order);
         clearCart();
-        alert(`Pedido generado con éxito ID: ${docRef.id}`);
+        alert(`¡Pedido creado! ID: ${docRef.id}`);
         navigate('/');
     } catch (error) {
-        console.error("Error al comprar:", error);
-        alert("Hubo un error al procesar el pedido");
+        console.error("Error creando orden:", error);
+        alert("Hubo un error al procesar el pedido.");
     } finally {
         setProcesando(false);
     }
   };
 
-  // 4. RENDERIZADO CONDICIONAL PARA EVITAR PANTALLA BLANCA
-  if (loading) {
-      return <div className="p-10 text-center font-bold text-gray-500">Cargando sesión...</div>;
-  }
-
-  if (!cart.length) {
-      return <div className="p-10 text-center">El carrito está vacío. <button onClick={() => navigate('/')}>Volver</button></div>;
-  }
+  if (loading) return <div className="p-10 text-center">Cargando...</div>;
+  if (!cart.length) return <div className="p-10 text-center">Carrito vacío. <button onClick={() => navigate('/')}>Volver</button></div>;
 
   return (
     <div className="max-w-4xl mx-auto p-6">
       <h1 className="text-2xl font-bold mb-6">Finalizar Compra</h1>
-      
-      {/* MENSAJE DE DEBUG VISUAL */}
-      {user ? (
-          <div className="bg-green-100 text-green-800 p-2 mb-4 rounded">
-              Hola <b>{users.email}</b>, hemos autocompletado tu correo.
-          </div>
-      ) : (
-          <div className="bg-yellow-100 text-yellow-800 p-2 mb-4 rounded">
-              Comprando como invitado (No registrado)
-          </div>
-      )}
 
       <div className="grid md:grid-cols-2 gap-8">
-        {/* FORMULARIO */}
         <form onSubmit={handleSubmit} className="space-y-4">
+            
+            {/* --- ESTE ES EL CAMPO QUE TE FALTA EN LA PANTALLA --- */}
             <div>
                 <label className="block text-sm font-bold mb-1">Email</label>
                 <input 
@@ -143,14 +127,16 @@ const Checkout = () => {
                     name="email"
                     value={clientData.email} 
                     onChange={handleInputChange}
-                    className="w-full border p-2 rounded bg-gray-50"
-                    // Si hay usuario, hacemos que sea de solo lectura para evitar errores
-                    readOnly={!!user} 
+                    className="w-full border p-2 rounded bg-gray-100"
+                    placeholder="tu@email.com"
+                    readOnly={!!user} // Si está logueado, no se edita
                     required 
                 />
             </div>
+            {/* ----------------------------------------------------- */}
+
             <div>
-                <label className="block text-sm font-bold mb-1">Nombre</label>
+                <label className="block text-sm font-bold mb-1">Nombre Completo</label>
                 <input 
                     type="text" 
                     name="nombre"
@@ -160,6 +146,7 @@ const Checkout = () => {
                     required 
                 />
             </div>
+
             <div>
                 <label className="block text-sm font-bold mb-1">Teléfono</label>
                 <input 
@@ -171,6 +158,7 @@ const Checkout = () => {
                     required 
                 />
             </div>
+
             <div>
                 <label className="block text-sm font-bold mb-1">Dirección</label>
                 <input 
@@ -186,13 +174,12 @@ const Checkout = () => {
             <button 
                 type="submit" 
                 disabled={procesando}
-                className="w-full bg-blue-600 text-white font-bold py-3 rounded hover:bg-blue-700 disabled:bg-gray-400"
+                className="w-full bg-green-600 text-white font-bold py-3 rounded hover:bg-green-700"
             >
-                {procesando ? 'Procesando...' : 'Confirmar Pedido'}
+                {procesando ? 'Procesando...' : 'Confirmar Compra'}
             </button>
         </form>
 
-        {/* RESUMEN */}
         <div className="bg-gray-50 p-6 rounded h-fit">
             <h2 className="text-xl font-bold mb-4">Resumen</h2>
             {cart.map(item => (
