@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { db } from '../firebase/config';
 import { doc, setDoc } from 'firebase/firestore';
 
+// ================= RENIEC TOKEN =================
+const RENIEC_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6ImpmY2M5NTAxMjMwOUBnbWFpbC5jb20ifQ.UaK6eecpbt-mVnF9hI-BYSHtl6QQ5hCLU1MNItWe9P8"; 
+
 const Register = () => {
   const [formData, setFormData] = useState({
+    dni: '',
     nombre: '',
     email: '',
     password: '',
@@ -14,55 +18,89 @@ const Register = () => {
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [searchingDni, setSearchingDni] = useState(false);
+  const [isManual, setIsManual] = useState(false); 
+  const [dniMessage, setDniMessage] = useState(''); // <-- NUEVO ESTADO PARA MENSAJE AMIGABLE
   
   const { signup } = useAuth();
   const navigate = useNavigate();
 
-  // --- LÓGICA DE FUERZA DE CONTRASEÑA ---
-  const calculateStrength = (password) => {
-    let score = 0;
-    if (!password) return 0;
-
-    // 1. Longitud mínima
-    if (password.length > 5) score += 40;
-    // 2. Contiene números
-    if (/\d/.test(password)) score += 20;
-    // 3. Contiene mayúsculas
-    if (/[A-Z]/.test(password)) score += 20;
-    // 4. Contiene caracteres especiales (!@#$...)
-    if (/[^A-Za-z0-9]/.test(password)) score += 20;
-
-    return Math.min(100, score);
+  // --- VALIDACIONES DE CONTRASEÑA ---
+  const passChecks = {
+    length: formData.password.length >= 6,
+    lower: /[a-z]/.test(formData.password),
+    upper: /[A-Z]/.test(formData.password),
+    number: /\d/.test(formData.password),
+    symbol: /[^A-Za-z0-9]/.test(formData.password)
   };
 
-  const strength = calculateStrength(formData.password);
-
-  const getStrengthColor = () => {
-    if (strength < 40) return 'bg-red-500';      // Débil
-    if (strength < 80) return 'bg-yellow-500';   // Media
-    return 'bg-green-500';                       // Fuerte
-  };
-
-  const getStrengthLabel = () => {
-    if (strength === 0) return '';
-    if (strength < 40) return 'Débil';
-    if (strength < 80) return 'Media';
-    return 'Fuerte';
-  };
-  // --------------------------------------
+  const isPasswordValid = passChecks.length && passChecks.lower && passChecks.upper && passChecks.number && passChecks.symbol;
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const validateForm = () => {
-    const { nombre, email, password, confirmPassword } = formData;
+  const handleDniChange = (e) => {
+    const value = e.target.value.replace(/\D/g, ''); 
+    setFormData({ ...formData, dni: value });
+    
+    // Si borra números, reiniciamos todo
+    if (value.length < 8) {
+      setFormData(prev => ({ ...prev, nombre: '' }));
+      setIsManual(false);
+      setDniMessage('');
+      setError('');
+    }
+  };
 
-    if (!nombre.trim() || !email.trim() || !password || !confirmPassword) {
-      setError('Por favor completa todos los campos.');
+  // ================= RENIEC POR DNI =================
+  useEffect(() => {
+    const fetchDNI = async () => {
+      const value = formData.dni;
+      if (value.length !== 8) return;
+
+      setSearchingDni(true);
+      setError('');
+      setDniMessage('');
+
+      try {
+        const res = await fetch(`https://dniruc.apisperu.com/api/v1/dni/${value}?token=${RENIEC_TOKEN}`);
+        const data = await res.json();
+
+        if (data?.nombres) {
+          const nombreCompleto = `${data.nombres} ${data.apellidoPaterno} ${data.apellidoMaterno}`.toUpperCase();
+          setFormData(prev => ({ ...prev, nombre: nombreCompleto }));
+          setIsManual(false); 
+        } else {
+          // Si no existe, habilitamos manual y mostramos mensaje amigable
+          setIsManual(true);
+          setFormData(prev => ({ ...prev, nombre: '' }));
+          setDniMessage("No encontramos este DNI. Por favor, escribe tu nombre manualmente.");
+        }
+      } catch (err) {
+        console.error("RENIEC error:", err);
+        // Si la API falla, habilitamos manual
+        setIsManual(true);
+        setFormData(prev => ({ ...prev, nombre: '' }));
+        setDniMessage("No pudimos validar el DNI automáticamente. Escribe tu nombre manualmente.");
+      } finally {
+        setSearchingDni(false);
+      }
+    };
+
+    fetchDNI();
+  }, [formData.dni]); 
+
+  const validateForm = () => {
+    const { dni, nombre, email, password, confirmPassword } = formData;
+
+    if (!dni || dni.length !== 8) {
+      setError('Por favor ingresa un DNI válido de 8 dígitos.');
+      return false;
+    }
+
+    if (!nombre.trim()) {
+      setError('Por favor ingresa tu nombre completo.');
       return false;
     }
 
@@ -72,8 +110,8 @@ const Register = () => {
       return false;
     }
 
-    if (password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres.');
+    if (!isPasswordValid) {
+      setError('La contraseña debe cumplir con todos los requisitos de seguridad.');
       return false;
     }
 
@@ -99,6 +137,7 @@ const Register = () => {
 
       await setDoc(doc(db, "users", uid), {
         uid: uid,
+        dni: formData.dni,
         email: formData.email.trim(),
         nombre: formData.nombre.trim(),
         role: "cliente", 
@@ -111,8 +150,6 @@ const Register = () => {
       console.error(error);
       if (error.code === 'auth/email-already-in-use') {
         setError('Este correo ya está registrado.');
-      } else if (error.code === 'auth/weak-password') {
-        setError('La contraseña es muy débil.');
       } else {
         setError('Error al registrarse. Intenta de nuevo.');
       }
@@ -126,6 +163,7 @@ const Register = () => {
       <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border border-gray-200">
         <h1 className="text-2xl font-bold text-center text-gray-800 mb-6">Crear Cuenta</h1>
         
+        {/* Este es el error GLOBAL, ya no saltará por culpa del DNI */}
         {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg mb-4 text-sm flex items-center gap-2">
                 <i className="fas fa-exclamation-circle"></i> {error}
@@ -135,15 +173,48 @@ const Register = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           
           <div>
+            <label className="block text-gray-600 text-sm font-bold mb-1">DNI</label>
+            <div className="relative">
+                <input 
+                  type="text" 
+                  name="dni"
+                  maxLength="8"
+                  value={formData.dni}
+                  onChange={handleDniChange} 
+                  className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="Escribe los 8 dígitos..."
+                />
+                {searchingDni && (
+                  <div className="absolute right-3 top-3 text-blue-500">
+                    <i className="fas fa-spinner fa-spin"></i>
+                  </div>
+                )}
+            </div>
+          </div>
+
+          <div>
             <label className="block text-gray-600 text-sm font-bold mb-1">Nombre Completo</label>
             <input 
               type="text" 
               name="nombre"
               value={formData.nombre}
               onChange={handleChange}
-              className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-              placeholder="Ej: Juan Pérez"
+              readOnly={!isManual} 
+              className={`w-full border p-3 rounded-lg outline-none transition ${
+                !isManual && formData.dni.length === 8 
+                ? 'bg-blue-50 border-blue-200 font-bold text-gray-700' 
+                : !isManual 
+                ? 'bg-gray-50 border-gray-300 text-gray-500 cursor-not-allowed' 
+                : 'bg-white border-gray-300 focus:ring-2 focus:ring-blue-500' 
+              }`}
+              placeholder={isManual ? "Escribe tus nombres y apellidos" : "Autocompletado con tu DNI"}
             />
+            {/* Mensaje amigable si el DNI no se encuentra */}
+            {dniMessage && (
+                <p className="text-xs text-orange-600 mt-1 flex items-center gap-1">
+                    <i className="fas fa-info-circle"></i> {dniMessage}
+                </p>
+            )}
           </div>
 
           <div>
@@ -158,7 +229,6 @@ const Register = () => {
             />
           </div>
 
-          {/* --- INPUT DE PASSWORD CON BARRA DE FUERZA --- */}
           <div>
             <label className="block text-gray-600 text-sm font-bold mb-1">Contraseña</label>
             <input 
@@ -167,32 +237,24 @@ const Register = () => {
               value={formData.password}
               onChange={handleChange}
               className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-              placeholder="Mínimo 6 caracteres"
+              placeholder="Crea una contraseña segura"
             />
             
-            {/* Barra de progreso visual */}
             {formData.password && (
-                <div className="mt-2">
-                    <div className="flex justify-between text-xs mb-1">
-                        <span className="text-gray-500">Seguridad:</span>
-                        <span className={`font-bold ${
-                            strength < 40 ? 'text-red-500' : strength < 80 ? 'text-yellow-600' : 'text-green-600'
-                        }`}>
-                            {getStrengthLabel()} ({strength}%)
-                        </span>
-                    </div>
-                    <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
-                        <div 
-                            className={`h-full transition-all duration-500 ease-out ${getStrengthColor()}`} 
-                            style={{ width: `${strength}%` }}
-                        ></div>
-                    </div>
-                    {/* Tips para mejorar */}
-                    {strength < 80 && (
-                        <p className="text-[10px] text-gray-400 mt-1">
-                            Usa mayúsculas, números y símbolos para mejorar.
-                        </p>
-                    )}
+                <div className="mt-3 bg-gray-50 p-3 rounded-lg border border-gray-100 text-xs space-y-2">
+                    <p className="font-bold text-gray-600 mb-1 border-b pb-1">Tu contraseña debe tener:</p>
+                    <p className={`flex items-center gap-2 transition-colors ${passChecks.length ? 'text-green-600 font-medium' : 'text-gray-500'}`}>
+                        <i className={`fas ${passChecks.length ? 'fa-check-circle' : 'fa-circle text-[10px]'}`}></i> Mínimo 6 caracteres
+                    </p>
+                    <p className={`flex items-center gap-2 transition-colors ${passChecks.upper && passChecks.lower ? 'text-green-600 font-medium' : 'text-gray-500'}`}>
+                        <i className={`fas ${passChecks.upper && passChecks.lower ? 'fa-check-circle' : 'fa-circle text-[10px]'}`}></i> Mayúsculas y minúsculas
+                    </p>
+                    <p className={`flex items-center gap-2 transition-colors ${passChecks.number ? 'text-green-600 font-medium' : 'text-gray-500'}`}>
+                        <i className={`fas ${passChecks.number ? 'fa-check-circle' : 'fa-circle text-[10px]'}`}></i> Al menos un número (0-9)
+                    </p>
+                    <p className={`flex items-center gap-2 transition-colors ${passChecks.symbol ? 'text-green-600 font-medium' : 'text-gray-500'}`}>
+                        <i className={`fas ${passChecks.symbol ? 'fa-check-circle' : 'fa-circle text-[10px]'}`}></i> Al menos un símbolo (@, #, etc.)
+                    </p>
                 </div>
             )}
           </div>
@@ -204,10 +266,13 @@ const Register = () => {
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleChange}
-              className={`w-full border p-3 rounded-lg focus:ring-2 outline-none transition ${
-                  formData.confirmPassword && formData.password !== formData.confirmPassword 
-                  ? 'border-red-300 focus:ring-red-200 bg-red-50'
-                  : 'border-gray-300 focus:ring-blue-500'
+              disabled={!isPasswordValid}
+              className={`w-full border p-3 rounded-lg outline-none transition ${
+                  !isPasswordValid 
+                  ? 'bg-gray-100 cursor-not-allowed'
+                  : formData.confirmPassword && formData.password !== formData.confirmPassword 
+                  ? 'border-red-300 focus:ring-2 focus:ring-red-200 bg-red-50'
+                  : 'border-gray-300 focus:ring-2 focus:ring-blue-500'
               }`}
               placeholder="Repite tu contraseña"
             />
@@ -215,9 +280,11 @@ const Register = () => {
 
           <button 
             type="submit" 
-            disabled={loading}
+            disabled={loading || !formData.nombre || !isPasswordValid || formData.password !== formData.confirmPassword} 
             className={`w-full font-bold py-3 rounded-lg text-white transition flex justify-center items-center gap-2 ${
-                loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-900 hover:bg-gray-800'
+                (loading || !formData.nombre || !isPasswordValid || (formData.password && formData.password !== formData.confirmPassword)) 
+                ? 'bg-gray-400 cursor-not-allowed' 
+                : 'bg-gray-900 hover:bg-gray-800 shadow-lg'
             }`}
           >
             {loading ? 'Creando cuenta...' : 'Registrarse'}

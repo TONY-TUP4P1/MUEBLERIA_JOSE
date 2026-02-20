@@ -12,13 +12,14 @@ const AdminLayout = () => {
   const [allowedModules, setAllowedModules] = useState([]);
   const [checkingPermissions, setCheckingPermissions] = useState(true);
   const [currentUserRole, setCurrentUserRole] = useState(""); 
-
-  // --- NUEVO ESTADO PARA EL NOMBRE ---
   const [currentUserName, setCurrentUserName] = useState("");
   
-  // NUEVOS ESTADOS PARA EL BLOQUEO 404
+  // Estados para el bloqueo 404
   const [isUnauthorized, setIsUnauthorized] = useState(false);
   const [countdown, setCountdown] = useState(5);
+
+  // Estado para el sidebar
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // --- EFECTO 1: VERIFICAR ROL Y PERMISOS ---
   useEffect(() => {
@@ -33,33 +34,28 @@ const AdminLayout = () => {
         let realName = "Usuario"; 
 
         if (userSnap.exists()) {
-            // --- AQUÍ ESTABA EL ERROR ---
-            // Faltaba declarar la variable 'userData' (o 'data') antes de usarla
             const userData = userSnap.data(); 
-            
             realRole = userData.role || "cliente";
-            realName = userData.nombre || "Usuario"; // Ahora sí podemos leer 'nombre'
+            realName = userData.nombre || "Usuario"; 
         }
         
-        // Guardamos en los estados para pasarlos al Welcome
         setCurrentUserRole(realRole);
         setCurrentUserName(realName);
 
-        // --- BLOQUEO DE SEGURIDAD (FAKE 404) ---
+        // Bloqueo de seguridad
         if (realRole === 'cliente') {
             setIsUnauthorized(true);
             setCheckingPermissions(false);
             return;
         }
 
-        // --- CARGA DE PERMISOS ---
+        // Carga de permisos
         if (realRole === 'admin' || realRole === 'superadmin') {
           setAllowedModules(['ALL']); 
           setCheckingPermissions(false);
           return;
         }
 
-        // Roles específicos
         const q = query(collection(db, "roles"), where("nombre", "==", realRole));
         const querySnapshot = await getDocs(q);
 
@@ -82,24 +78,21 @@ const AdminLayout = () => {
   }, [user, navigate]);
 
 
-  // --- EFECTO 2: CUENTA REGRESIVA Y REDIRECCIÓN (SOLO SI NO AUTORIZADO) ---
+  // --- EFECTO 2: CUENTA REGRESIVA ---
   useEffect(() => {
     let interval;
     let timeout;
 
     if (isUnauthorized) {
-        // 1. Restar 1 al contador cada segundo
         interval = setInterval(() => {
             setCountdown((prev) => prev - 1);
         }, 1000);
 
-        // 2. Redirigir después de 5 segundos exactos
         timeout = setTimeout(() => {
             navigate('/');
         }, 5000);
     }
 
-    // Limpieza al desmontar
     return () => {
         clearInterval(interval);
         clearTimeout(timeout);
@@ -119,7 +112,7 @@ const AdminLayout = () => {
 
   // --- RENDERIZADO ---
 
-  // 1. Spinner de carga inicial
+  // 1. Spinner de carga
   if (checkingPermissions) {
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100">
@@ -129,7 +122,7 @@ const AdminLayout = () => {
     );
   }
 
-  // 2. PANTALLA FAKE 404 (SEGURIDAD)
+  // 2. Pantalla 404 Fake
   if (isUnauthorized) {
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 text-center px-4">
@@ -138,39 +131,39 @@ const AdminLayout = () => {
             <p className="text-gray-500 mt-2 max-w-md">
                 Lo sentimos, la página que buscas no existe o ha sido movida.
             </p>
-            
             <div className="mt-8 p-4 bg-white rounded-lg shadow-sm border border-gray-200">
                 <p className="text-sm text-gray-600 font-medium">
                     <i className="fas fa-circle-notch fa-spin mr-2 text-blue-500"></i>
                     Redirigiendo al inicio en <span className="font-bold text-blue-600 text-lg">{countdown}</span> segundos...
                 </p>
             </div>
-            
-            <button 
-                onClick={() => navigate('/')}
-                className="mt-6 text-blue-600 hover:underline text-sm"
-            >
+            <button onClick={() => navigate('/')} className="mt-6 text-blue-600 hover:underline text-sm">
                 Ir al Inicio inmediatamente
             </button>
         </div>
     );
   }
 
-  // 3. LAYOUT DEL ADMIN (SOLO SI PASÓ FILTROS)
+  // 3. LAYOUT DEL ADMIN (ADAPTADO CON SIDEBAR DINÁMICO)
   return (
-    <div className="flex min-h-screen bg-gray-100 font-sans">
-      {/* Sidebar */}
-      <aside className="w-64 bg-gray-900 text-white flex flex-col shadow-2xl sticky top-0 h-screen">
-        <div className="p-6 text-2xl font-bold text-center border-b border-gray-800 tracking-wide">
+    <div className="flex min-h-screen bg-gray-100 font-sans overflow-hidden">
+      
+      {/* --- SIDEBAR --- */}
+      <aside 
+        className={`bg-gray-900 text-white flex flex-col shadow-2xl h-screen transition-all duration-300 ease-in-out ${
+            isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full overflow-hidden'
+        }`}
+      >
+        <div className="p-6 text-2xl font-bold text-center border-b border-gray-800 tracking-wide whitespace-nowrap">
           Admin Panel
           <span className="block text-xs font-normal text-orange-500 mt-1 uppercase tracking-widest">
             {currentUserRole}
           </span>
         </div>
         
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto whitespace-nowrap">
           {canAccess('dashboard') && (
-             <Link to="/admin/dashboard" className="block py-3 px-4 ..."> {/* <--- CAMBIO AQUÍ */}
+             <Link to="/admin/dashboard" className="block py-3 px-4 rounded hover:bg-gray-800 transition text-gray-300 hover:text-white">
                 <i className="fas fa-chart-line mr-3 w-5 text-center"></i> Dashboard
              </Link>
           )}
@@ -223,7 +216,7 @@ const AdminLayout = () => {
           )}
         </nav>
 
-        <div className="p-4 border-t border-gray-800 bg-gray-900">
+        <div className="p-4 border-t border-gray-800 bg-gray-900 whitespace-nowrap">
              <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-full bg-orange-600 flex items-center justify-center font-bold text-white">
                     {user?.email?.charAt(0).toUpperCase()}
@@ -243,8 +236,41 @@ const AdminLayout = () => {
         </div>
       </aside>
 
-      <main className="flex-1 p-8 overflow-y-auto">
-        <Outlet context={{ role: currentUserRole, nombre: currentUserName }} />
+      {/* --- CONTENIDO PRINCIPAL --- */}
+      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+        
+        {/* HEADER SUPERIOR */}
+        <header className="h-16 bg-white shadow-sm border-b flex items-center px-6 justify-between flex-shrink-0">
+            {/* Izquierda: Botón hamburguesa y Título */}
+            <div className="flex items-center gap-4">
+                <button 
+                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                    className="text-gray-600 hover:text-orange-600 transition focus:outline-none p-2 rounded hover:bg-gray-100"
+                >
+                    <i className={`fas ${isSidebarOpen ? 'fa-indent' : 'fa-outdent'} text-2xl`}></i>
+                </button>
+                <h2 className="text-xl font-semibold text-gray-800 hidden sm:block">Panel de Administración</h2>
+            </div>
+
+            {/* Derecha: Botón de Previsualizar Web */}
+            <div className="flex items-center">
+                <Link 
+                    to="/" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 text-sm font-semibold shadow-sm"
+                    title="Ver cómo los clientes ven la tienda"
+                >
+                    <i className="fas fa-external-link-alt"></i>
+                    <span className="hidden sm:inline">Ver Tienda</span>
+                </Link>
+            </div>
+        </header>
+
+        {/* ÁREA DE CONTENIDO (OUTLET) */}
+        <div className="flex-1 overflow-auto p-8">
+            <Outlet context={{ role: currentUserRole, nombre: currentUserName, canAccess }} />
+        </div>
       </main>
     </div>
   );

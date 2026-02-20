@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import Navbar from '../components/client/Navbar';
 import Footer from '../components/client/Footer';
+import Chatbot from '../pages/client/Chatbot';
 
 const ClientLayout = () => {
   return (
@@ -10,6 +11,7 @@ const ClientLayout = () => {
         <Outlet />
       </main>
       <Footer />
+      <Chatbot />
     </div>
   );
 };

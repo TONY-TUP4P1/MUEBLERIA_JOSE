@@ -6,8 +6,9 @@ import { fixImageURL } from '../../utils/images';
 const AdminAbout = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [fetchingAddress, setFetchingAddress] = useState(false); // Estado para el botón de buscar dirección
   
-  // Estado limpio sin coordenadas
+  // Estado inicial
   const [info, setInfo] = useState({
     titulo: 'Sobre Nosotros',
     historia: '',
@@ -15,7 +16,9 @@ const AdminAbout = () => {
     direccion: '',
     telefono: '',
     email: '',
-    horario: ''
+    horario: '',
+    lat: '', 
+    lng: ''  
   });
 
   // Cargar datos
@@ -25,7 +28,6 @@ const AdminAbout = () => {
         const docRef = doc(db, "content", "about");
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-            // Solo tomamos los datos que nos interesan, ignorando lat/lng si existían
             const data = docSnap.data();
             setInfo({
                 titulo: data.titulo || '',
@@ -34,7 +36,9 @@ const AdminAbout = () => {
                 direccion: data.direccion || '',
                 telefono: data.telefono || '',
                 email: data.email || '',
-                horario: data.horario || ''
+                horario: data.horario || '',
+                lat: data.lat || '', 
+                lng: data.lng || ''  
             });
         }
       } catch (error) {
@@ -48,6 +52,34 @@ const AdminAbout = () => {
 
   const handleChange = (e) => {
     setInfo({ ...info, [e.target.name]: e.target.value });
+  };
+
+  // FUNCIÓN NUEVA: Buscar dirección usando las coordenadas
+  const handleGetAddress = async () => {
+    if (!info.lat || !info.lng) {
+        alert("⚠️ Por favor, ingresa primero la latitud y longitud.");
+        return;
+    }
+
+    setFetchingAddress(true);
+    try {
+        // Hacemos una consulta directa a Google Geocoding API
+        const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${info.lat},${info.lng}&key=AIzaSyBIZrptkE0IGakPhzMzMpq4PaW_gw_D1vk`);
+        const data = await response.json();
+
+        if (data.status === "OK" && data.results.length > 0) {
+            // Tomamos la primera dirección que encuentre (la más exacta)
+            const foundAddress = data.results[0].formatted_address;
+            setInfo(prev => ({ ...prev, direccion: foundAddress }));
+        } else {
+            alert("No se encontró una dirección exacta para estas coordenadas.");
+        }
+    } catch (error) {
+        console.error("Error buscando dirección:", error);
+        alert("Hubo un error al intentar conectar con Google Maps.");
+    } finally {
+        setFetchingAddress(false);
+    }
   };
 
   const handleSave = async (e) => {
@@ -100,7 +132,6 @@ const AdminAbout = () => {
                 <label className="block text-sm font-bold text-gray-600 mb-1">URL Imagen (Local o Equipo)</label>
                 <input name="imagen" value={info.imagen} onChange={handleChange} className="w-full border p-3 rounded-lg focus:ring-2 focus:ring-blue-100 outline-none" />
                 
-                {/* Previsualización */}
                 {info.imagen && (
                     <div className="mt-4 rounded-lg overflow-hidden h-48 border bg-gray-50">
                         <img src={fixImageURL(info.imagen)} alt="Preview" className="w-full h-full object-cover" />
@@ -109,13 +140,42 @@ const AdminAbout = () => {
             </div>
         </div>
 
-        {/* COLUMNA DERECHA: CONTACTO */}
+        {/* COLUMNA DERECHA: CONTACTO Y MAPA */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-6 h-fit">
-            <h2 className="text-xl font-bold text-gray-700 border-b pb-2">📍 Datos de Contacto</h2>
+            <h2 className="text-xl font-bold text-gray-700 border-b pb-2">📍 Datos de Contacto y Ubicación</h2>
 
-            <div>
-                <label className="block text-sm font-bold text-gray-600 mb-1">Dirección Física</label>
-                <input name="direccion" value={info.direccion} onChange={handleChange} className="w-full border p-3 rounded-lg focus:ring-2 focus:ring-blue-100 outline-none" placeholder="Av. Principal 123..." />
+            {/* SECCIÓN NUEVA: COORDENADAS DEL MAPA PRIMERO */}
+            <h3 className="font-bold text-gray-700 mt-2 border-b pb-2">🗺️ Ubicación en Google Maps</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+                <div>
+                    <label className="block text-sm font-bold text-gray-600 mb-1">Latitud</label>
+                    <input name="lat" value={info.lat} onChange={handleChange} className="w-full border p-3 rounded-lg focus:ring-2 focus:ring-blue-100 outline-none" placeholder="Ej: -12.046374" />
+                </div>
+                <div>
+                    <label className="block text-sm font-bold text-gray-600 mb-1">Longitud</label>
+                    <input name="lng" value={info.lng} onChange={handleChange} className="w-full border p-3 rounded-lg focus:ring-2 focus:ring-blue-100 outline-none" placeholder="Ej: -77.042793" />
+                </div>
+            </div>
+            
+            <button 
+                type="button" 
+                onClick={handleGetAddress}
+                disabled={fetchingAddress}
+                className="w-full bg-blue-100 text-blue-700 hover:bg-blue-200 font-bold py-2 rounded-lg transition border border-blue-200"
+            >
+                {fetchingAddress ? 'Buscando...' : '📍 Obtener Dirección desde las coordenadas'}
+            </button>
+
+            {/* DIRECCIÓN QUE SE AUTOCOMPLETA */}
+            <div className="mt-4">
+                <label className="block text-sm font-bold text-gray-600 mb-1">Dirección Física (Se ve en la web)</label>
+                <input 
+                    name="direccion" 
+                    value={info.direccion} 
+                    onChange={handleChange} 
+                    className="w-full border p-3 rounded-lg focus:ring-2 focus:ring-blue-100 outline-none bg-gray-50" 
+                    placeholder="La dirección aparecerá aquí..." 
+                />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -134,10 +194,6 @@ const AdminAbout = () => {
                 <input name="horario" value={info.horario} onChange={handleChange} className="w-full border p-3 rounded-lg focus:ring-2 focus:ring-blue-100 outline-none" placeholder="Lun-Vie: 9am - 6pm" />
             </div>
             
-            <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-800 border border-blue-100">
-                <i className="fas fa-info-circle mr-2"></i>
-                Estos datos aparecerán automáticamente en las tarjetas de contacto de la web.
-            </div>
         </div>
 
       </form>

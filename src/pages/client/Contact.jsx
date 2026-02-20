@@ -2,6 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../../firebase/config';
 import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { fixImageURL } from '../../utils/images';
+import { GoogleMap, useJsApiLoader, Marker, DirectionsRenderer } from '@react-google-maps/api';
+
+// Configuración visual del mapa
+const containerStyle = {
+  width: '100%',
+  height: '400px',
+  borderRadius: '0.75rem' 
+};
 
 const Contact = () => {
   const [info, setInfo] = useState(null);
@@ -9,6 +17,17 @@ const Contact = () => {
   const [form, setForm] = useState({ nombre: '', email: '', mensaje: '' });
   const [sending, setSending] = useState(false);
 
+  // Estados para las rutas
+  const [routeResponse, setRouteResponse] = useState(null);
+  const [routeInfo, setRouteInfo] = useState(null);
+
+  // Cargamos el script de la API de Google
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: "AIzaSyBIZrptkE0IGakPhzMzMpq4PaW_gw_D1vk" 
+  });
+
+  // Lógica para cargar la info de Firebase
   useEffect(() => {
     const fetchInfo = async () => {
       try {
@@ -18,7 +37,6 @@ const Contact = () => {
         if (docSnap.exists()) {
           setInfo(docSnap.data());
         } else {
-           // Datos por defecto si no hay nada en Firebase
            setInfo({
              titulo: 'Sobre Nosotros',
              historia: 'Aquí va la historia de tu empresa...',
@@ -37,23 +55,69 @@ const Contact = () => {
     fetchInfo();
   }, []);
 
-  // 2. Función para enviar mensaje
+  // Lógica para enviar el formulario a Firebase
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSending(true);
     try {
         await addDoc(collection(db, "messages"), {
             ...form,
-            fecha: serverTimestamp(), // Guarda la hora exacta del servidor
-            leido: false // Para saber cuáles son nuevos
+            fecha: serverTimestamp(),
+            leido: false
         });
         alert("¡Mensaje enviado con éxito! Nos pondremos en contacto pronto.");
-        setForm({ nombre: '', email: '', mensaje: '' }); // Limpiar form
+        setForm({ nombre: '', email: '', mensaje: '' });
     } catch (error) {
         console.error(error);
         alert("Error al enviar el mensaje.");
     } finally {
         setSending(false);
+    }
+  };
+
+  // Coordenadas de la tienda (Destino) - Si no hay en Firebase, usa Lima Centro
+  const storeLocation = {
+    lat: parseFloat(info?.lat) || -12.046374,
+    lng: parseFloat(info?.lng) || -77.042793
+  };
+
+  // Función para calcular la ruta al hacer clic en el mapa
+  const handleMapClick = async (event) => {
+    if (!window.google) return;
+
+    const originLocation = {
+        lat: event.latLng.lat(),
+        lng: event.latLng.lng()
+    };
+
+    const directionsService = new window.google.maps.DirectionsService();
+    const geocoder = new window.google.maps.Geocoder();
+
+    try {
+        let addressText = "Dirección seleccionada";
+        const geoResult = await geocoder.geocode({ location: originLocation });
+        if (geoResult.results[0]) {
+            addressText = geoResult.results[0].formatted_address;
+        }
+
+        const result = await directionsService.route({
+            origin: originLocation,
+            destination: storeLocation,
+            travelMode: window.google.maps.TravelMode.DRIVING,
+        });
+
+        setRouteResponse(result);
+
+        const routeData = result.routes[0].legs[0];
+        setRouteInfo({
+            address: addressText,
+            distance: routeData.distance.text,
+            duration: routeData.duration.text
+        });
+
+    } catch (error) {
+        console.error("Error calculando la ruta: ", error);
+        alert("No pudimos calcular una ruta en auto desde ese punto exacto. Intenta con un lugar más cercano a una calle principal.");
     }
   };
 
@@ -134,9 +198,60 @@ const Contact = () => {
             </div>
         </div>
 
-        {/* SECCIÓN 3: FORMULARIO VISUAL */}
-        {/* FORMULARIO DE CONTACTO ACTUALIZADO */}
-        <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 max-w-4xl mx-auto border border-gray-100 mt-16">
+        {/* SECCIÓN 3: MAPA DE GOOGLE (AHORA CON RUTAS) */}
+        <div className="bg-white rounded-2xl shadow-lg p-4 border border-gray-100 mb-16 animate-fadeInUp">
+            
+            <div className="bg-blue-50 text-blue-800 text-sm p-3 rounded-lg mb-4 text-center font-medium border border-blue-100">
+                <i className="fas fa-location-arrow mr-2"></i>
+                Haz clic en cualquier parte del mapa para calcular la ruta más rápida hacia nuestra tienda.
+            </div>
+
+            {isLoaded ? (
+                <GoogleMap
+                    mapContainerStyle={containerStyle}
+                    center={storeLocation}
+                    zoom={15}
+                    onClick={handleMapClick}
+                >
+                    {!routeResponse && <Marker position={storeLocation} />}
+                    
+                    {routeResponse && (
+                        <DirectionsRenderer 
+                            directions={routeResponse} 
+                            options={{ suppressMarkers: false }}
+                        />
+                    )}
+                </GoogleMap>
+            ) : (
+                <div className="w-full h-[400px] bg-gray-100 animate-pulse rounded-xl flex items-center justify-center text-gray-400">
+                    Cargando mapa interactivo...
+                </div>
+            )}
+
+            {/* Tarjeta de Información de Ruta */}
+            {routeInfo && (
+                <div className="mt-4 bg-gray-900 text-white p-6 rounded-xl shadow-md flex flex-col md:flex-row justify-between items-center gap-4 animate-fadeInUp">
+                    <div className="flex-1">
+                        <span className="text-gray-400 text-sm font-bold block mb-1">📍 Origen seleccionado:</span>
+                        <span className="font-medium">{routeInfo.address}</span>
+                    </div>
+                    
+                    <div className="flex gap-6 border-t md:border-t-0 md:border-l border-gray-700 pt-4 md:pt-0 md:pl-6 w-full md:w-auto">
+                        <div>
+                            <span className="text-gray-400 text-sm font-bold block mb-1">🚗 Distancia:</span>
+                            <span className="text-xl font-bold text-blue-400">{routeInfo.distance}</span>
+                        </div>
+                        <div>
+                            <span className="text-gray-400 text-sm font-bold block mb-1">⏱️ Tiempo (Auto):</span>
+                            <span className="text-xl font-bold text-green-400">{routeInfo.duration}</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+
+        {/* SECCIÓN 4: FORMULARIO VISUAL */}
+        <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 max-w-4xl mx-auto border border-gray-100">
             <h2 className="text-3xl font-bold text-center text-gray-800 mb-2">¿Tienes alguna duda?</h2>
             <p className="text-center text-gray-500 mb-8">Envíanos un mensaje y te responderemos pronto.</p>
             

@@ -5,45 +5,78 @@ import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc } fro
 const AdminMessages = () => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null); // Nuevo estado para errores
 
   // Escuchar mensajes en tiempo real
   useEffect(() => {
     const q = query(collection(db, "messages"), orderBy("fecha", "desc"));
     
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const msgs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setMessages(msgs);
-      setLoading(false);
-    });
+    // IMPORTANTE: onSnapshot recibe 3 argumentos: query, callbackSuccess, callbackError
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        const msgs = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setMessages(msgs);
+        setLoading(false);
+        setError(null); // Limpiar errores si tuvo éxito
+      },
+      (err) => {
+        // AQUÍ ATRAPAMOS EL ERROR PARA QUE NO CRASHEE LA APP
+        console.error("❌ Error obteniendo mensajes:", err);
+        setError("No tienes permisos para ver los mensajes o hubo un error de conexión.");
+        setLoading(false);
+      }
+    );
 
     return () => unsubscribe();
   }, []);
 
   // Marcar como leído
   const markAsRead = async (id, statusActual) => {
-    if (statusActual) return; // Si ya está leído, no hacer nada
-    await updateDoc(doc(db, "messages", id), { leido: true });
+    if (statusActual) return; 
+    try {
+        await updateDoc(doc(db, "messages", id), { leido: true });
+    } catch (err) {
+        console.error("Error al actualizar:", err);
+        alert("No tienes permiso para editar mensajes.");
+    }
   };
 
   // Borrar mensaje
   const handleDelete = async (id) => {
     if (confirm("¿Estás seguro de borrar este mensaje?")) {
-      await deleteDoc(doc(db, "messages", id));
+      try {
+        await deleteDoc(doc(db, "messages", id));
+      } catch (err) {
+        console.error("Error al borrar:", err);
+        alert("No tienes permiso para borrar mensajes.");
+      }
     }
   };
 
-  // Formatear fecha
+  // Formatear fecha (Con protección contra crashes si timestamp es null)
   const formatDate = (timestamp) => {
-    if (!timestamp) return '';
+    if (!timestamp || !timestamp.seconds) return 'Sin fecha';
     return new Date(timestamp.seconds * 1000).toLocaleDateString("es-ES", {
         day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
     });
   };
 
   if (loading) return <div className="p-8">Cargando mensajes...</div>;
+
+  // Renderizado condicional si hubo error
+  if (error) {
+    return (
+        <div className="p-8 text-center">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
+                <strong className="font-bold">Error de Acceso: </strong>
+                <span className="block sm:inline">{error}</span>
+            </div>
+        </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto p-6">
@@ -74,11 +107,12 @@ const AdminMessages = () => {
                             <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold
                                 ${msg.leido ? 'bg-gray-100 text-gray-500' : 'bg-blue-100 text-blue-600'}
                             `}>
-                                {msg.nombre.charAt(0).toUpperCase()}
+                                {/* Protección por si no hay nombre */}
+                                {(msg.nombre || "?").charAt(0).toUpperCase()}
                             </div>
                             <div>
                                 <h3 className={`text-lg ${msg.leido ? 'font-medium text-gray-700' : 'font-bold text-gray-900'}`}>
-                                    {msg.nombre}
+                                    {msg.nombre || "Anónimo"}
                                     {!msg.leido && <span className="ml-2 text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">NUEVO</span>}
                                 </h3>
                                 <a href={`mailto:${msg.email}`} className="text-sm text-gray-500 hover:text-blue-600 hover:underline">
@@ -99,7 +133,7 @@ const AdminMessages = () => {
                         <a 
                             href={`mailto:${msg.email}?subject=Respuesta a tu consulta&body=Hola ${msg.nombre}, respecto a tu mensaje...`}
                             className="text-sm font-bold text-blue-600 hover:bg-blue-50 px-3 py-2 rounded transition"
-                            onClick={(e) => e.stopPropagation()} // Evita que el click marque como leído al mismo tiempo
+                            onClick={(e) => e.stopPropagation()} 
                         >
                             <i className="fas fa-reply mr-1"></i> Responder
                         </a>

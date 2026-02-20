@@ -15,6 +15,7 @@ import Contact from './pages/client/Contact';
 import MisPedidos from './pages/client/MisPedidos'; // Importar
 import Perfil from './pages/client/Perfil';       // Importar
 import Ayuda from './pages/client/Ayuda';         // Importar
+import Chatbot from './pages/client/Chatbot';
 
 import AdminLayout from './layouts/AdminLayout';
 import Welcome from './pages/admin/Welcome'; 
@@ -51,6 +52,7 @@ function App() {
           <Route path="/mis-pedidos" element={<MisPedidos />} />
           <Route path="/perfil" element={<Perfil />} />
           <Route path="/ayuda" element={<Ayuda />} />
+          <Route path='/Chatbot' element={<Chatbot/>} />
         </Route>
 
         {/* RUTAS DEL ADMIN (Protegidas) 🔒 */}

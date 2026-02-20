@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { db } from '../../firebase/config';
 import { doc, getDoc } from 'firebase/firestore';
+import logoTienda from '../../assets/MuebleriaJose.png';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -74,9 +75,10 @@ const Navbar = () => {
         <div className="flex justify-between items-center h-20">
         
             {/* LOGO */}
-            <Link to="/" className="text-2xl font-extrabold text-gray-800 tracking-tight">
-                Mueblería<span className="text-orange-600">Jose</span>
-            </Link>
+            <div className="flex items-center gap-2">
+                <img src={logoTienda} alt="Logo de la Tienda" className="h-20 w-auto" />
+                <span className="text-xl font-bold text-gray-900">Mueblería José</span>
+            </div>
 
             {/* BUSCADOR (Desktop) */}
             <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-lg mx-8 relative">
